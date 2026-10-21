@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supreme Student Council — Official Headquarters</title>
+
+  <!-- 1. Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- 2. Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- 3. LINK TO YOUR CUSTOM CSS FILE HERE -->
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col justify-between antialiased">
+
+  <!-- Header -->
+  <header class="border-b border-emerald-900/60 bg-emerald-950/80 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-amber-300 font-bold border border-amber-400/50 shadow">
+        <i class="fa-solid me-0.5 fa-building-columns"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-wider text-amber-300 uppercase">Supreme Student Council</h1>
+        <p class="text-[10px] text-emerald-300/80 uppercase tracking-widest font-semibold">The Official Council Headquarters</p>
+      </div>
+    </div>
+    <nav class="space-x-6 text-xs font-semibold tracking-wider text-emerald-200 uppercase">
+      <a href="#" class="hover:text-amber-300 transition">About</a>
+      <a href="#" class="hover:text-amber-300 transition">Contact</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="flex-1 flex flex-col items-center justify-center text-center px-4 py-16 bg-gradient-to-b from-emerald-950 via-slate-900 to-slate-950 relative overflow-hidden">
+    <h1 class="font-cinzel text-4xl md:text-6xl font-extrabold tracking-wider text-emerald-100 drop-shadow-md max-w-4xl leading-tight uppercase">
+      Supreme Student Council
+    </h1>
+    <p class="mt-4 text-amber-300/90 italic font-serif text-sm md:text-base max-w-2xl">
+      “LEADERSHIP IS NOT ABOUT BEING IN CHARGE. IT IS ABOUT TAKING CARE OF THOSE IN YOUR CHARGE.”
+    </p>
+
+    <div class="mt-10 flex flex-wrap justify-center gap-4">
+      <button onclick="openModal('memberModal')" class="bg-amber-400 hover:bg-amber-300 text-emerald-950 font-bold px-5 py-3 rounded-md text-xs uppercase tracking-wider transition duration-200 shadow-lg hover:shadow-amber-400/20 flex items-center gap-2">
+        <i class="fa-solid fa-id-card"></i> View Membership Status
+      </button>
+      <button onclick="openModal('officerModal')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-md text-xs uppercase tracking-wider transition duration-200 shadow-lg hover:shadow-emerald-600/20 flex items-center gap-2">
+        <i class="fa-solid fa-user-shield"></i> Officer/Committee Status
+      </button>
+    </div>
+  </main>
+
+  <!-- Membership Modal -->
+  <div id="memberModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-white text-slate-800 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-emerald-900/30">
+      <div class="bg-emerald-950 text-white p-4 flex justify-between items-center border-b border-amber-400/30">
+        <div>
+          <h2 class="font-bold text-sm text-amber-300 uppercase tracking-wide">Membership Status Verification</h2>
+          <p class="text-[11px] text-emerald-200">Supreme Student Council • Student Government</p>
+        </div>
+        <button onclick="closeModal('memberModal')" class="text-emerald-300 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-4 border-b">
+        <input type="text" id="memberSearch" onkeyup="searchMembers()" placeholder="Search Name, SSC Number, or Section..." class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600">
+      </div>
+      <div class="p-4 overflow-x-auto flex-1">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="bg-emerald-900 text-amber-300 uppercase text-[10px] tracking-wider">
+              <th class="p-3">SSC Number</th>
+              <th class="p-3">Member Name</th>
+              <th class="p-3">Year & Section</th>
+              <th class="p-3">Designation</th>
+              <th class="p-3">Cellphone</th>
+              <th class="p-3">Status</th>
+            </tr>
+          </thead>
+          <tbody id="memberTableBody"></tbody>
+        </table>
+      </div>
+      <div class="p-4 border-t flex justify-end">
+        <button onclick="closeModal('memberModal')" class="bg-slate-800 text-white px-4 py-1.5 rounded text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Officer Modal -->
+  <div id="officerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-white text-slate-800 rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-emerald-900/30">
+      <div class="bg-emerald-950 text-white p-4 flex justify-between items-center border-b border-amber-400/30">
+        <div>
+          <h2 class="font-bold text-sm text-amber-300 uppercase tracking-wide">Officer / Committee Status Verification</h2>
+          <p class="text-[11px] text-emerald-200">Supreme Student Council • Executive Officers & Committees</p>
+        </div>
+        <button onclick="closeModal('officerModal')" class="text-emerald-300 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-4 border-b flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div class="flex gap-2 text-xs font-semibold">
+          <button id="tab-ALL" onclick="filterOfficers('ALL')" class="tab-btn bg-emerald-700 text-white px-3 py-1.5 rounded">ALL</button>
+          <button id="tab-OFFICERS" onclick="filterOfficers('OFFICERS')" class="tab-btn bg-slate-100 text-slate-600 px-3 py-1.5 rounded">OFFICERS</button>
+          <button id="tab-COMMITTEES" onclick="filterOfficers('COMMITTEES')" class="tab-btn bg-slate-100 text-slate-600 px-3 py-1.5 rounded">COMMITTEES</button>
+        </div>
+        <input type="text" id="officerSearch" onkeyup="searchOfficers()" placeholder="Search Officer Name, Position, Section..." class="w-full md:w-64 bg-slate-50 border border-slate-300 rounded-lg px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600">
+      </div>
+      <div class="p-4 overflow-x-auto flex-1">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="bg-emerald-900 text-amber-300 uppercase text-[10px] tracking-wider">
+              <th class="p-3">SSC Number</th>
+              <th class="p-3">Officer Name</th>
+              <th class="p-3">Position</th>
+              <th class="p-3">Year & Section</th>
+              <th class="p-3">Cellphone</th>
+            </tr>
+          </thead>
+          <tbody id="officerTableBody"></tbody>
+        </table>
+      </div>
+      <div class="p-4 border-t flex justify-end">
+        <button onclick="closeModal('officerModal')" class="bg-slate-800 text-white px-4 py-1.5 rounded text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-emerald-900/60 bg-emerald-950 text-slate-400 py-6 px-6 text-center text-xs space-y-2">
+    <p>© 2026 Supreme Student Council (SSC). All Rights Reserved.</p>
+    <p class="text-[10px] text-emerald-400">Isabela State University Cauayan Campus</p>
+  </footer>
+
+  <!-- 4. LINK TO YOUR CUSTOM JAVASCRIPT FILE HERE -->
+  <script src="script.js"></script>
+</body>
+</html>
