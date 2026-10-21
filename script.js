@@ -112,3 +112,40 @@ document.addEventListener('DOMContentLoaded', () => {
   renderMembers(memberData);
   renderOfficers(memberData);
 });
+
+// Submit Registration Form to Backend -> Supabase
+async function handleRegistration(event) {
+  event.preventDefault();
+
+  const formData = {
+    ssc_number: document.getElementById('regSscNumber').value.trim(),
+    full_name: document.getElementById('regFullName').value.trim(),
+    member_type: document.getElementById('regType').value,
+    designation: document.getElementById('regDesignation').value.trim(),
+    year_section: document.getElementById('regYearSection').value.trim(),
+    cellphone: document.getElementById('regCellphone').value.trim(),
+    status: 'ACTIVE'
+  };
+
+  try {
+    const res = await fetch("https://ssc-api-remk.onrender.com/api/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert("Registration Successful! Member has been saved to Supabase.");
+      document.getElementById('registrationForm').reset();
+      closeModal('registerModal');
+      fetchMembers(); // Reload database tables
+    } else {
+      alert(data.error || "Failed to register.");
+    }
+  } catch (err) {
+    console.error("Error submitting registration:", err);
+    alert("Connection error. Could not reach server.");
+  }
+}
