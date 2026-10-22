@@ -169,3 +169,125 @@ function renderOfficers(data) {
       </tr>`;
   });
 }
+// --- POSTS & ANNOUNCEMENTS LOGIC ---
+
+// Fetch and Render Feed Posts
+async function loadPosts() {
+  const feedContainer = document.getElementById('postsFeed');
+  if (!feedContainer) return;
+
+  try {
+    const res = await fetch("https://ssc-api-remk.onrender.com/api/posts");
+    const posts = await res.json();
+
+    const currentUser = JSON.parse(localStorage.getItem('ssc_user')) || {};
+    const isOfficer = currentUser.member_type === 'officer';
+
+    feedContainer.innerHTML = '';
+
+    if (!posts || posts.length === 0) {
+      feedContainer.innerHTML = `<p class="text-slate-500 text-center py-6 italic">No announcements posted yet.</p>`;
+      return;
+    }
+
+    posts.forEach(post => {
+      const deleteBtn = isOfficer
+        ? `<button onclick="deletePost(${post.id})" class="text-red-400 hover:text-red-300 text-xs bg-red-950/40 px-2.5 py-1 rounded border border-red-900 transition-colors">Delete</button>`
+        : '';
+
+      feedContainer.innerHTML += `
+        <div class="bg-slate-800 p-5 rounded-xl mb-4 border border-slate-700 shadow-md">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h4 class="font-bold text-white text-base">${post.author_name}</h4>
+              <span class="text-xs text-emerald-400 font-medium">${post.author_role || 'Council Officer'}</span>
+            </div>
+            ${deleteBtn}
+          </div>
+          <p class="text-slate-200 mt-2 whitespace-pre-wrap text-sm leading-relaxed">${post.content}</p>
+          ${post.image_url ? `<img src="${post.image_url}" class="mt-4 rounded-lg max-h-96 w-full object-cover border border-slate-700">` : ''}
+        </div>`;
+    });
+  } catch (err) {
+    console.error("Error loading posts:", err);
+  }
+}
+
+// Delete a Post (Council Officers only)
+async function deletePost(postId) {
+  if (!confirm("Are you sure you want to delete this announcement?")) return;
+
+  try {
+    const res = await fetch(`https://ssc-api-remk.onrender.com/api/posts/${postId}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      loadPosts(); // Refresh feed after deletion
+    } else {
+      alert("Failed to delete the post.");
+    }
+  } catch (err) {
+    console.error("Error connecting to server:", err);
+    alert("Connection error while deleting post.");
+  }
+}
+
+// Handle Creating a New Post with Direct Image Upload
+async function handleCreatePost(event) {
+  event.preventDefault();
+  
+  const currentUser = JSON.parse(localStorage.getItem('ssc_user'));
+  if (!currentUser || currentUser.member_type !== 'officer') {
+    alert("Unauthorized. Only council officers can post announcements.");
+    return;
+  }
+
+  const content = document.getElementById('postContent').value.trim();
+  const imageFile = document.getElementById('postImageInput').files[0];
+  let imageUrl = null;
+
+  try {
+    // 1. Upload image file first if one was selected
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const uploadRes = await fetch("https://ssc-api-remk.onrender.com/api/upload", {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadData = await uploadRes.json();
+
+      if (uploadRes.ok) {
+        imageUrl = uploadData.image_url;
+      } else {
+        alert(uploadData.error || "Failed to upload image.");
+        return;
+      }
+    }
+
+    // 2. Submit post content and image URL to database
+    const postRes = await fetch("https://ssc-api-remk.onrender.com/api/posts", {
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        author_name: currentUser.full_name,
+        author_role: currentUser.designation || 'Council Officer',
+        content: content,
+        image_url: imageUrl
+      })
+    });
+
+    if (postRes.ok) {
+      document.getElementById('postForm').reset();
+      loadPosts(); // Refresh feed to show the new post
+    } else {
+      alert("Failed to create post.");
+    }
+  } catch (err) {
+    console.error("Error creating post:", err);
+    alert("Connection error. Could not reach server.");
+  }
+}
