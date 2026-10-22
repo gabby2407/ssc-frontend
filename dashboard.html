@@ -45,9 +45,15 @@
       <div id="postPublisherBox" class="hidden bg-slate-800 border border-slate-700 p-4 rounded-xl shadow space-y-3">
         <h3 class="font-semibold text-amber-300 text-sm"><i class="fa-solid fa-pen-to-square"></i> Create Council Announcement</h3>
         <textarea id="postContent" rows="3" placeholder="Write an announcement or update..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none"></textarea>
-        <input type="text" id="postImageUrl" placeholder="Optional Image URL (e.g. https://...)" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs focus:border-amber-400 focus:outline-none">
+        
+        <!-- Direct File Upload Input -->
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Attach Image File (Optional)</label>
+          <input type="file" id="postImageFile" accept="image/*" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-slate-900 hover:file:bg-amber-400 cursor-pointer">
+        </div>
+
         <div class="flex justify-end">
-          <button onclick="publishPost()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">Publish Post</button>
+          <button onclick="publishPost()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">Publish Post</button>
         </div>
       </div>
 
@@ -126,14 +132,38 @@
       }
     }
 
-    // Publish Post Function
+    // Publish Post Function with Direct File Upload Support
     async function publishPost() {
       const content = document.getElementById('postContent').value.trim();
-      const image_url = document.getElementById('postImageUrl').value.trim();
+      const imageFileInput = document.getElementById('postImageFile');
+      let imageUrl = null;
 
-      if (!content) return alert("Please write something to post.");
+      if (!content && imageFileInput.files.length === 0) {
+        return alert("Please write an announcement or attach an image to post.");
+      }
 
       try {
+        // If an image file is selected, upload it via FormData
+        if (imageFileInput.files.length > 0) {
+          const file = imageFileInput.files[0];
+          const formData = new FormData();
+          formData.append('image', file);
+
+          const uploadRes = await fetch(`${API_URL}/upload`, {
+            method: 'POST',
+            body: formData
+          });
+
+          const uploadData = await uploadRes.json();
+          if (uploadRes.ok) {
+            imageUrl = uploadData.image_url;
+          } else {
+            alert(uploadData.error || "Failed to upload image file.");
+            return;
+          }
+        }
+
+        // Send the post data containing the content and final image URL
         const res = await fetch(`${API_URL}/posts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -141,19 +171,20 @@
             author_name: currentUser.full_name,
             author_role: currentUser.designation || 'Council Officer',
             content,
-            image_url
+            image_url: imageUrl
           })
         });
 
         if (res.ok) {
           document.getElementById('postContent').value = '';
-          document.getElementById('postImageUrl').value = '';
+          imageFileInput.value = '';
           loadPosts();
         } else {
           alert("Failed to publish post.");
         }
       } catch (err) {
         console.error(err);
+        alert("Error connecting to server for post publishing.");
       }
     }
   </script>
