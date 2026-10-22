@@ -76,6 +76,9 @@
       window.location.href = "index.html";
     }
 
+    // Check if user is an officer
+    const isOfficer = currentUser && (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers');
+
     // Initialize View
     document.addEventListener('DOMContentLoaded', () => {
       if (currentUser) {
@@ -85,7 +88,7 @@
         `;
 
         // Show post creation box ONLY if user is a Council Officer
-        if (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers') {
+        if (isOfficer) {
           document.getElementById('postPublisherBox').classList.remove('hidden');
         }
       }
@@ -113,6 +116,13 @@
         }
 
         posts.forEach(p => {
+          // Add Delete button if logged in as an officer
+          const deleteBtn = isOfficer 
+            ? `<button onclick="deletePost(${p.id})" class="text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 text-xs px-2 py-1 rounded border border-rose-800/60 transition-colors ml-2">
+                 <i class="fa-solid fa-trash mr-1"></i> Delete
+               </button>`
+            : '';
+
           container.innerHTML += `
             <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl space-y-3 shadow">
               <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
@@ -120,7 +130,10 @@
                   <h4 class="font-bold text-amber-300 text-sm">${p.author_name}</h4>
                   <span class="text-xs text-slate-400">${p.author_role}</span>
                 </div>
-                <span class="text-[10px] text-slate-500">${new Date(p.created_at).toLocaleString()}</span>
+                <div class="flex items-center space-x-2">
+                  <span class="text-[10px] text-slate-500">${new Date(p.created_at).toLocaleString()}</span>
+                  ${deleteBtn}
+                </div>
               </div>
               <p class="text-slate-200 text-sm whitespace-pre-line">${p.content}</p>
               ${p.image_url ? `<img src="${p.image_url}" class="rounded-lg max-h-80 w-full object-cover border border-slate-700" alt="Post Image">` : ''}
@@ -129,6 +142,27 @@
         });
       } catch (err) {
         console.error("Error loading posts:", err);
+      }
+    }
+
+    // Delete a post by ID
+    async function deletePost(postId) {
+      if (!confirm("Are you sure you want to delete this announcement?")) return;
+
+      try {
+        const res = await fetch(`${API_URL}/posts/${postId}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          loadPosts(); // Reload feed to remove deleted post
+        } else {
+          const data = await res.json();
+          alert(data.error || "Failed to delete post.");
+        }
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert("Server error while deleting post.");
       }
     }
 
