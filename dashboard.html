@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSC Student Portal & Feed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-graduation-cap text-2xl text-amber-400"></i>
+        <h1 class="font-bold text-lg text-emerald-400">SSC Community Feed</h1>
+      </div>
+      <div id="userInfo" class="text-sm text-slate-300"></div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+    
+    <!-- Sidebar / Role Info & Notifications -->
+    <aside class="space-y-4">
+      <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow">
+        <h2 class="text-emerald-400 font-semibold mb-2"><i class="fa-solid fa-bell"></i> Notifications</h2>
+        <ul class="text-xs text-slate-400 space-y-2">
+          <li class="bg-slate-900/60 p-2 rounded border border-slate-700/50">🔔 Welcome to the official SSC Portal!</li>
+          <li class="bg-slate-900/60 p-2 rounded border border-slate-700/50">📌 Council announcements appear live in your feed.</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Feed -->
+    <section class="md:col-span-2 space-y-6">
+
+      <!-- Council Post Creation Box (Only visible if user is an Officer) -->
+      <div id="postPublisherBox" class="hidden bg-slate-800 border border-slate-700 p-4 rounded-xl shadow space-y-3">
+        <h3 class="font-semibold text-amber-300 text-sm"><i class="fa-solid fa-pen-to-square"></i> Create Council Announcement</h3>
+        <textarea id="postContent" rows="3" placeholder="Write an announcement or update..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none"></textarea>
+        <input type="text" id="postImageUrl" placeholder="Optional Image URL (e.g. https://...)" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs focus:border-amber-400 focus:outline-none">
+        <div class="flex justify-end">
+          <button onclick="publishPost()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg">Publish Post</button>
+        </div>
+      </div>
+
+      <!-- Feed Container -->
+      <div id="postsFeed" class="space-y-4">
+        <p class="text-center text-slate-500 text-sm">Loading announcements...</p>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "https://ssc-api-remk.onrender.com/api";
+
+    // Retrieve active logged-in user details from localStorage
+    const currentUser = JSON.parse(localStorage.getItem('ssc_user')) || {
+      full_name: 'Guest Student',
+      member_type: 'member', // 'member' or 'officer'
+      designation: 'Regular Member'
+    };
+
+    // Initialize View
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('userInfo').innerHTML = `
+        Logged in as: <span class="font-bold text-amber-300">${currentUser.full_name}</span> 
+        <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-emerald-300 ml-1">${currentUser.member_type.toUpperCase()}</span>
+      `;
+
+      // Show post creation box ONLY if user is a Council Officer
+      if (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers') {
+        document.getElementById('postPublisherBox').classList.remove('hidden');
+      }
+
+      loadPosts();
+    });
+
+    // Load Posts from database
+    async function loadPosts() {
+      try {
+        const res = await fetch(`${API_URL}/posts`);
+        const posts = await res.json();
+        const container = document.getElementById('postsFeed');
+        container.innerHTML = '';
+
+        if (!posts || posts.length === 0) {
+          container.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl text-center text-slate-400 italic">No posts yet. Check back later!</div>`;
+          return;
+        }
+
+        posts.forEach(p => {
+          container.innerHTML += `
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl space-y-3 shadow">
+              <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
+                <div>
+                  <h4 class="font-bold text-amber-300 text-sm">${p.author_name}</h4>
+                  <span class="text-xs text-slate-400">${p.author_role}</span>
+                </div>
+                <span class="text-[10px] text-slate-500">${new Date(p.created_at).toLocaleString()}</span>
+              </div>
+              <p class="text-slate-200 text-sm whitespace-pre-line">${p.content}</p>
+              ${p.image_url ? `<img src="${p.image_url}" class="rounded-lg max-h-80 w-full object-cover border border-slate-700" alt="Post Image">` : ''}
+            </div>
+          `;
+        });
+      } catch (err) {
+        console.error("Error loading posts:", err);
+      }
+    }
+
+    // Publish Post Function
+    async function publishPost() {
+      const content = document.getElementById('postContent').value.trim();
+      const image_url = document.getElementById('postImageUrl').value.trim();
+
+      if (!content) return alert("Please write something to post.");
+
+      try {
+        const res = await fetch(`${API_URL}/posts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            author_name: currentUser.full_name,
+            author_role: currentUser.designation || 'Council Officer',
+            content,
+            image_url
+          })
+        });
+
+        if (res.ok) {
+          document.getElementById('postContent').value = '';
+          document.getElementById('postImageUrl').value = '';
+          loadPosts();
+        } else {
+          alert("Failed to publish post.");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
