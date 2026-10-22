@@ -1,5 +1,6 @@
 // Live API Endpoint from Render
 const API_URL = "https://ssc-api-remk.onrender.com/api/members";
+const BASE_API = "https://ssc-api-remk.onrender.com/api";
 
 let activeFilter = 'ALL';
 
@@ -169,6 +170,7 @@ function renderOfficers(data) {
       </tr>`;
   });
 }
+
 // --- POSTS & ANNOUNCEMENTS LOGIC ---
 
 // Fetch and Render Feed Posts
@@ -177,36 +179,42 @@ async function loadPosts() {
   if (!feedContainer) return;
 
   try {
-    const res = await fetch("https://ssc-api-remk.onrender.com/api/posts");
+    const res = await fetch(`${BASE_API}/posts`);
     const posts = await res.json();
 
     const currentUser = JSON.parse(localStorage.getItem('ssc_user')) || {};
-    const isOfficer = currentUser.member_type === 'officer';
+    const isOfficer = currentUser.member_type && (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers');
 
     feedContainer.innerHTML = '';
 
     if (!posts || posts.length === 0) {
-      feedContainer.innerHTML = `<p class="text-slate-500 text-center py-6 italic">No announcements posted yet.</p>`;
+      feedContainer.innerHTML = `<div class="bg-slate-800 p-6 rounded-xl text-center text-slate-400 italic">No posts yet. Check back later!</div>`;
       return;
     }
 
-    posts.forEach(post => {
+    posts.forEach(p => {
       const deleteBtn = isOfficer
-        ? `<button onclick="deletePost(${post.id})" class="text-red-400 hover:text-red-300 text-xs bg-red-950/40 px-2.5 py-1 rounded border border-red-900 transition-colors">Delete</button>`
+        ? `<button onclick="deletePost(${p.id})" class="text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 text-xs px-2 py-1 rounded border border-rose-800/60 transition-colors ml-2">
+             <i class="fa-solid fa-trash mr-1"></i> Delete
+           </button>`
         : '';
 
       feedContainer.innerHTML += `
-        <div class="bg-slate-800 p-5 rounded-xl mb-4 border border-slate-700 shadow-md">
-          <div class="flex justify-between items-center mb-3">
+        <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl space-y-3 shadow">
+          <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
             <div>
-              <h4 class="font-bold text-white text-base">${post.author_name}</h4>
-              <span class="text-xs text-emerald-400 font-medium">${post.author_role || 'Council Officer'}</span>
+              <h4 class="font-bold text-amber-300 text-sm">${p.author_name}</h4>
+              <span class="text-xs text-slate-400">${p.author_role}</span>
             </div>
-            ${deleteBtn}
+            <div class="flex items-center space-x-2">
+              <span class="text-[10px] text-slate-500">${new Date(p.created_at).toLocaleString()}</span>
+              ${deleteBtn}
+            </div>
           </div>
-          <p class="text-slate-200 mt-2 whitespace-pre-wrap text-sm leading-relaxed">${post.content}</p>
-          ${post.image_url ? `<img src="${post.image_url}" class="mt-4 rounded-lg max-h-96 w-full object-cover border border-slate-700">` : ''}
-        </div>`;
+          <p class="text-slate-200 text-sm whitespace-pre-line">${p.content}</p>
+          ${p.image_url ? `<img src="${p.image_url}" class="rounded-lg max-h-80 w-full object-cover border border-slate-700" alt="Post Image">` : ''}
+        </div>
+      `;
     });
   } catch (err) {
     console.error("Error loading posts:", err);
@@ -218,14 +226,15 @@ async function deletePost(postId) {
   if (!confirm("Are you sure you want to delete this announcement?")) return;
 
   try {
-    const res = await fetch(`https://ssc-api-remk.onrender.com/api/posts/${postId}`, {
+    const res = await fetch(`${BASE_API}/posts/${postId}`, {
       method: 'DELETE',
     });
 
     if (res.ok) {
       loadPosts(); // Refresh feed after deletion
     } else {
-      alert("Failed to delete the post.");
+      const data = await res.json();
+      alert(data.error || "Failed to delete the post.");
     }
   } catch (err) {
     console.error("Error connecting to server:", err);
@@ -233,27 +242,30 @@ async function deletePost(postId) {
   }
 }
 
-// Handle Creating a New Post with Direct Image Upload
-async function handleCreatePost(event) {
-  event.preventDefault();
-  
+// Publish Post Function with Direct File Upload Support (Matches HTML button `onclick="publishPost()"`)
+async function publishPost() {
   const currentUser = JSON.parse(localStorage.getItem('ssc_user'));
-  if (!currentUser || currentUser.member_type !== 'officer') {
+  if (!currentUser || (currentUser.member_type.toLowerCase() !== 'officer' && currentUser.member_type.toLowerCase() !== 'officers')) {
     alert("Unauthorized. Only council officers can post announcements.");
     return;
   }
 
   const content = document.getElementById('postContent').value.trim();
-  const imageFile = document.getElementById('postImageInput').files[0];
+  const imageFileInput = document.getElementById('postImageFile');
   let imageUrl = null;
+
+  if (!content && imageFileInput.files.length === 0) {
+    return alert("Please write an announcement or attach an image to post.");
+  }
 
   try {
     // 1. Upload image file first if one was selected
-    if (imageFile) {
+    if (imageFileInput.files.length > 0) {
+      const file = imageFileInput.files[0];
       const formData = new FormData();
-      formData.append('image', imageFile);
+      formData.append('image', file);
 
-      const uploadRes = await fetch("https://ssc-api-remk.onrender.com/api/upload", {
+      const uploadRes = await fetch(`${BASE_API}/upload`, {
         method: 'POST',
         body: formData
       });
@@ -269,25 +281,26 @@ async function handleCreatePost(event) {
     }
 
     // 2. Submit post content and image URL to database
-    const postRes = await fetch("https://ssc-api-remk.onrender.com/api/posts", {
+    const res = await fetch(`${BASE_API}/posts`, {
       method: 'POST',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         author_name: currentUser.full_name,
         author_role: currentUser.designation || 'Council Officer',
-        content: content,
+        content,
         image_url: imageUrl
       })
     });
 
-    if (postRes.ok) {
-      document.getElementById('postForm').reset();
+    if (res.ok) {
+      document.getElementById('postContent').value = '';
+      imageFileInput.value = '';
       loadPosts(); // Refresh feed to show the new post
     } else {
-      alert("Failed to create post.");
+      alert("Failed to publish post.");
     }
   } catch (err) {
-    console.error("Error creating post:", err);
+    console.error("Error publishing post:", err);
     alert("Connection error. Could not reach server.");
   }
 }
