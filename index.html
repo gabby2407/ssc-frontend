@@ -77,10 +77,10 @@
         <button onclick="closeModal('loginModal')" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
       
-      <form onsubmit="handleLogin(event)" class="p-6 space-y-4">
+      <form onsubmit="handleLogin(event)" autocomplete="off" class="p-6 space-y-4">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Enter your SSC ID Number</label>
-          <input type="text" id="loginSscNumber" required placeholder="e.g., SSC-2026-0001" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+          <input type="text" id="loginSscNumber" required autocomplete="off" placeholder="e.g., SSC-2026-0001" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
         </div>
 
         <div class="pt-2 flex justify-end gap-3">
@@ -99,15 +99,15 @@
         <button onclick="closeModal('registerModal')" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
       
-      <form id="registrationForm" onsubmit="handleRegistration(event)" class="p-6 space-y-4">
+      <form id="registrationForm" onsubmit="handleRegistration(event)" autocomplete="off" class="p-6 space-y-4">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">SSC ID Number</label>
-          <input type="text" id="regSscNumber" required placeholder="e.g., SSC-2026-0006" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+          <input type="text" id="regSscNumber" required autocomplete="off" placeholder="e.g., SSC-2026-0006" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
         </div>
 
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Full Name</label>
-          <input type="text" id="regFullName" required placeholder="e.g., Juan Dela Cruz" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+          <input type="text" id="regFullName" required autocomplete="off" placeholder="e.g., Juan Dela Cruz" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -120,18 +120,18 @@
           </div>
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Designation/Role</label>
-            <input type="text" id="regDesignation" required placeholder="e.g., Student / Treasurer" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+            <input type="text" id="regDesignation" required autocomplete="off" placeholder="e.g., Student / Treasurer" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Year & Section</label>
-            <input type="text" id="regYearSection" required placeholder="e.g., 3rd Year - BSIT" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+            <input type="text" id="regYearSection" required autocomplete="off" placeholder="e.g., 3rd Year - BSIT" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
           </div>
           <div>
             <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Cellphone Number</label>
-            <input type="text" id="regCellphone" required placeholder="e.g., 09123456789" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+            <input type="text" id="regCellphone" required autocomplete="off" placeholder="e.g., 09123456789" class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
           </div>
         </div>
 
@@ -151,7 +151,7 @@
         <button onclick="closeModal('memberModal')" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
       <div class="p-6 overflow-y-auto space-y-4">
-        <input type="text" id="memberSearch" oninput="searchMembers()" placeholder="Search by name or ID..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-emerald-400 focus:outline-none">
+        <input type="text" id="memberSearch" oninput="searchMembers()" autocomplete="off" placeholder="Search by name or ID..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-emerald-400 focus:outline-none">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
@@ -181,7 +181,7 @@
         <button onclick="closeModal('officerModal')" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
       <div class="p-6 overflow-y-auto space-y-4">
-        <input type="text" id="officerSearch" oninput="searchOfficers()" placeholder="Search officer name or position..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
+        <input type="text" id="officerSearch" oninput="searchOfficers()" autocomplete="off" placeholder="Search officer name or position..." class="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-sm focus:border-amber-400 focus:outline-none">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse text-sm">
             <thead>
