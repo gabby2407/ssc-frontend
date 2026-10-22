@@ -16,7 +16,12 @@
         <i class="fa-solid fa-graduation-cap text-2xl text-amber-400"></i>
         <h1 class="font-bold text-lg text-emerald-400">SSC Community Feed</h1>
       </div>
-      <div id="userInfo" class="text-sm text-slate-300"></div>
+      <div class="flex items-center space-x-4">
+        <div id="userInfo" class="text-sm text-slate-300"></div>
+        <button onclick="logoutUser()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all shadow">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -58,26 +63,35 @@
     const API_URL = "https://ssc-api-remk.onrender.com/api";
 
     // Retrieve active logged-in user details from localStorage
-    const currentUser = JSON.parse(localStorage.getItem('ssc_user')) || {
-      full_name: 'Guest Student',
-      member_type: 'member', // 'member' or 'officer'
-      designation: 'Regular Member'
-    };
+    const currentUser = JSON.parse(localStorage.getItem('ssc_user'));
+
+    // Security check: If not logged in, redirect straight back to index.html
+    if (!currentUser) {
+      window.location.href = "index.html";
+    }
 
     // Initialize View
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('userInfo').innerHTML = `
-        Logged in as: <span class="font-bold text-amber-300">${currentUser.full_name}</span> 
-        <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-emerald-300 ml-1">${currentUser.member_type.toUpperCase()}</span>
-      `;
+      if (currentUser) {
+        document.getElementById('userInfo').innerHTML = `
+          Logged in as: <span class="font-bold text-amber-300">${currentUser.full_name}</span> 
+          <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-emerald-300 ml-1">${currentUser.member_type.toUpperCase()}</span>
+        `;
 
-      // Show post creation box ONLY if user is a Council Officer
-      if (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers') {
-        document.getElementById('postPublisherBox').classList.remove('hidden');
+        // Show post creation box ONLY if user is a Council Officer
+        if (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers') {
+          document.getElementById('postPublisherBox').classList.remove('hidden');
+        }
       }
 
       loadPosts();
     });
+
+    // Logout Function
+    function logoutUser() {
+      localStorage.removeItem('ssc_user');
+      window.location.href = "index.html";
+    }
 
     // Load Posts from database
     async function loadPosts() {
