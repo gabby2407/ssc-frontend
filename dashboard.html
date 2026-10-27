@@ -29,6 +29,13 @@
     
     <!-- Sidebar / Role Info & Notifications -->
     <aside class="space-y-4">
+      <div class="bg-slate-800 border border-amber-700/60 p-4 rounded-xl shadow space-y-3">
+        <h2 class="text-amber-300 font-semibold"><i class="fa-solid fa-user-check"></i> Council registration review</h2>
+        <p class="text-xs text-slate-400">Enter the council approval key configured by the site administrator to review new registrations.</p>
+        <input id="councilApprovalKey" type="password" autocomplete="off" placeholder="Council approval key" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs focus:border-amber-400 focus:outline-none">
+        <button onclick="loadPendingMembers()" class="bg-amber-600 hover:bg-amber-500 text-slate-900 text-xs font-semibold px-3 py-2 rounded">Load pending requests</button>
+        <div id="pendingMembers" class="space-y-2 text-xs"></div>
+      </div>
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow">
         <h2 class="text-emerald-400 font-semibold mb-2"><i class="fa-solid fa-bell"></i> Notifications</h2>
         <ul class="text-xs text-slate-400 space-y-2">
@@ -100,6 +107,52 @@
     function logoutUser() {
       localStorage.removeItem('ssc_user');
       window.location.href = "index.html";
+    }
+
+    async function loadPendingMembers() {
+      const key = document.getElementById('councilApprovalKey').value.trim();
+      const container = document.getElementById('pendingMembers');
+      if (!key) return alert('Enter the council approval key.');
+      try {
+        const res = await fetch(`${API_URL}/members/pending`, {
+          headers: { 'x-council-approval-key': key }
+        });
+        const requests = await res.json();
+        if (!res.ok) return alert(requests.error || 'Could not load pending registrations.');
+        container.innerHTML = requests.length ? '' : '<p class="text-slate-400">No pending registrations.</p>';
+        requests.forEach(member => {
+          const row = document.createElement('div');
+          row.className = 'bg-slate-900/70 border border-slate-700 rounded p-2 space-y-1';
+          const details = document.createElement('p');
+          details.className = 'text-slate-300';
+          details.textContent = `${member.full_name} (${member.ssc_number}) · ${member.member_type} · ${member.designation}`;
+          const approve = document.createElement('button');
+          approve.className = 'text-emerald-300 hover:text-emerald-200 underline';
+          approve.textContent = 'Approve';
+          approve.onclick = () => approveMember(member.ssc_number);
+          row.append(details, approve);
+          container.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Pending registration load error:', err);
+        alert('Connection error while loading registrations.');
+      }
+    }
+
+    async function approveMember(sscNumber) {
+      const key = document.getElementById('councilApprovalKey').value.trim();
+      try {
+        const res = await fetch(`${API_URL}/members/${encodeURIComponent(sscNumber)}/approve`, {
+          method: 'POST',
+          headers: { 'x-council-approval-key': key }
+        });
+        const data = await res.json();
+        if (!res.ok) return alert(data.error || 'Could not approve registration.');
+        await loadPendingMembers();
+      } catch (err) {
+        console.error('Member approval error:', err);
+        alert('Connection error while approving registration.');
+      }
     }
 
     // Load Posts from database
