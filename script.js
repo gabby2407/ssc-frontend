@@ -67,7 +67,7 @@ async function handleRegistration(event) {
     designation: document.getElementById('regDesignation').value.trim(),
     year_section: document.getElementById('regYearSection').value.trim(),
     cellphone: document.getElementById('regCellphone').value.trim(),
-    status: 'ACTIVE'
+    status: 'PENDING'
   };
 
   try {
@@ -77,10 +77,12 @@ async function handleRegistration(event) {
       body: JSON.stringify(formData)
     });
 
-    const data = await res.json();
+    // Read the API response even for 400 errors so the exact server message
+    // is shown. The form is reset only after a successful registration.
+    const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
-      alert("Registration Successful! You can now log in.");
+      alert("Registration request submitted. The current council must approve it before you can log in.");
       document.getElementById('registrationForm').reset();
       closeModal('registerModal');
     } else {
@@ -103,8 +105,10 @@ async function handleLogin(event) {
 
     const user = members.find(m => m.ssc_number.toLowerCase() === sscNumber.toLowerCase());
 
-    if (user) {
+    if (user && String(user.status).toUpperCase() === 'ACTIVE') {
       loginUser(user);
+    } else if (user) {
+      alert("Your registration is still awaiting council approval.");
     } else {
       alert("SSC ID not found in the database. Please register first!");
     }
