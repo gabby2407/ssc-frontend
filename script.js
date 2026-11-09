@@ -78,6 +78,7 @@ async function handleRegistration(event) {
     status: 'PENDING'
   };
 
+  let authAccountCreated = false;
   try {
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
@@ -87,6 +88,7 @@ async function handleRegistration(event) {
       options: { data: { display_name: formData.full_name } }
     });
     if (authError) throw authError;
+    authAccountCreated = Boolean(authData.user);
 
     const res = await fetch(API_URL, {
       method: "POST",
@@ -109,7 +111,9 @@ async function handleRegistration(event) {
     }
   } catch (err) {
     console.error("Error submitting registration:", err);
-    alert("Connection error. Could not reach server.");
+    alert(authAccountCreated
+      ? `Your Auth account was created, but the membership server could not be reached. Don't register again; confirm your email and try signing in. Details: ${err.message || 'connection failed'}`
+      : (err.message || 'Could not create your account. Check your connection and try again.'));
   }
 }
 
