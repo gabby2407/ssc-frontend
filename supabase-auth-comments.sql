@@ -1,0 +1,133 @@
+-- Run in the Supabase SQL Editor.
+-- This site uses integer IDs for public.posts.id.
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null default 'Member',
+  role text not null default 'member' check (role in ('member', 'officer')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+revoke all on public.profiles from anon, authenticated;
+grant select on public.profiles to authenticated;
+
+drop policy if exists "Users can read their own profile" on public.profiles;
+create policy "Users can read their own profile"
+on public.profiles for select to authenticated
+using ((select auth.uid()) = id);
+
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name, role)
+  values (
+    new.id,
+    coalesce(nullif(trim(new.raw_user_meta_data ->> 'display_name'), ''), 'Member'),
+    'member'
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_profile on auth.users;
+create trigger on_auth_user_created_profile
+after insert on auth.users
+for each row execute function public.handle_new_auth_user();
+
+insert into public.profiles (id, display_name, role)
+select
+  id,
+  coalesce(nullif(trim(raw_user_meta_data ->> 'display_name'), ''), 'Member'),
+  'member'
+from auth.users
+on conflict (id) do nothing;
+
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id integer not null references public.posts(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  author_name text not null default 'Member',
+  content text not null check (char_length(trim(content)) between 1 and 5000),
+  created_at timestamptz not null default now()
+);
+
+alter table public.comments
+  add column if not exists author_name text not null default 'Member';
+
+alter table public.comments
+  drop constraint if exists comments_user_id_fkey;
+alter table public.comments
+  add constraint comments_user_id_fkey
+  foreign key (user_id) references auth.users(id) on delete cascade;
+
+create index if not exists comments_post_created_at_idx
+  on public.comments (post_id, created_at desc);
+
+alter table public.comments enable row level security;
+revoke all on public.comments from anon, authenticated;
+grant select on public.comments to anon, authenticated;
+grant insert, update, delete on public.comments to authenticated;
+
+drop policy if exists "Comments are publicly readable" on public.comments;
+create policy "Comments are publicly readable"
+on public.comments for select to anon, authenticated
+using (true);
+
+drop policy if exists "Members can comment" on public.comments;
+drop policy if exists "Users can add their own comments" on public.comments;
+create policy "Members can comment"
+on public.comments for insert to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and p.role in ('member', 'officer')
+  )
+);
+
+drop policy if exists "Users can edit their own comments" on public.comments;
+create policy "Users can edit their own comments"
+on public.comments for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete their own comments" on public.comments;
+create policy "Users can delete their own comments"
+on public.comments for delete to authenticated
+using ((select auth.uid()) = user_id);
+
+create or replace function public.set_comment_author_name()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  select coalesce(nullif(trim(display_name), ''), 'Member')
+    into new.author_name
+    from public.profiles
+    where id = new.user_id;
+  if new.author_name is null then
+    new.author_name := 'Member';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists comments_set_author_name on public.comments;
+create trigger comments_set_author_name
+before insert or update of user_id, author_name on public.comments
+for each row execute function public.set_comment_author_name();
+
+-- Enable INSERT events for the comments table in Supabase Realtime if desired.
+-- In the Dashboard: Database > Publications > supabase_realtime > comments.
+-- After a council officer has created and confirmed an account, grant the role:
+-- update public.profiles p set role = 'officer'
+-- from auth.users u where p.id = u.id and lower(u.email) = lower('officer@example.com');

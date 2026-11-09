@@ -1,6 +1,10 @@
 // Live API Endpoint from Render
 const API_URL = "https://ssc-api-remk.onrender.com/api/members";
 const BASE_API = "https://ssc-api-remk.onrender.com/api";
+const supabaseClient = window.SSC_SUPABASE_URL && window.SSC_SUPABASE_URL.startsWith('https://')
+  && window.SSC_SUPABASE_ANON_KEY && !window.SSC_SUPABASE_ANON_KEY.startsWith('PASTE_')
+  ? window.supabase.createClient(window.SSC_SUPABASE_URL, window.SSC_SUPABASE_ANON_KEY)
+  : null;
 
 let activeFilter = 'ALL';
 
@@ -60,10 +64,14 @@ function searchOfficers() {
 async function handleRegistration(event) {
   event.preventDefault();
 
+  if (!supabaseClient) {
+    return alert('Supabase Auth is not configured yet. Add your project URL and publishable key to supabase-config.js.');
+  }
+
   const formData = {
     ssc_number: document.getElementById('regSscNumber').value.trim(),
     full_name: document.getElementById('regFullName').value.trim(),
-    member_type: document.getElementById('regType').value,
+    member_type: 'member',
     designation: document.getElementById('regDesignation').value.trim(),
     year_section: document.getElementById('regYearSection').value.trim(),
     cellphone: document.getElementById('regCellphone').value.trim(),
@@ -71,6 +79,15 @@ async function handleRegistration(event) {
   };
 
   try {
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: { data: { display_name: formData.full_name } }
+    });
+    if (authError) throw authError;
+
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,11 +99,13 @@ async function handleRegistration(event) {
     const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
-      alert("Registration request submitted. The current council must approve it before you can log in.");
+      alert(authData.session
+        ? 'Account created and registration submitted. Regular members can comment; only council officers can publish announcements.'
+        : 'Account created. Confirm your email, then sign in. Regular members can comment; only council officers can publish announcements.');
       document.getElementById('registrationForm').reset();
       closeModal('registerModal');
     } else {
-      alert(data.error || "Failed to register.");
+      alert(`Your Auth account was created, but the membership request was not saved: ${data.error || 'server error'}. You can still sign in as a member; ask a council officer to check your membership record.`);
     }
   } catch (err) {
     console.error("Error submitting registration:", err);
@@ -97,31 +116,20 @@ async function handleRegistration(event) {
 // Handle Login
 async function handleLogin(event) {
   event.preventDefault();
-  const sscNumber = document.getElementById('loginSscNumber').value.trim();
+  if (!supabaseClient) {
+    return alert('Supabase Auth is not configured yet. Add your project URL and publishable key to supabase-config.js.');
+  }
 
   try {
-    const res = await fetch(`${API_URL}?search=${encodeURIComponent(sscNumber)}`);
-    const members = await res.json();
-
-    const user = members.find(m => m.ssc_number.toLowerCase() === sscNumber.toLowerCase());
-
-    if (user && String(user.status).toUpperCase() === 'ACTIVE') {
-      loginUser(user);
-    } else if (user) {
-      alert("Your registration is still awaiting council approval.");
-    } else {
-      alert("SSC ID not found in the database. Please register first!");
-    }
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    window.location.href = 'dashboard.html';
   } catch (err) {
     console.error("Login error:", err);
-    alert("Connection error. Could not reach server.");
+    alert(err.message || "Could not sign in.");
   }
-}
-
-// Store Session and Redirect to Dashboard Feed
-function loginUser(userData) {
-  localStorage.setItem('ssc_user', JSON.stringify(userData));
-  window.location.href = "dashboard.html";
 }
 
 // Render Membership Table

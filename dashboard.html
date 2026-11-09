@@ -72,41 +72,64 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script>
     const API_URL = "https://ssc-api-remk.onrender.com/api";
-
-    // Retrieve active logged-in user details from localStorage
-    const currentUser = JSON.parse(localStorage.getItem('ssc_user'));
-
-    // Security check: If not logged in, redirect straight back to index.html
-    if (!currentUser) {
-      window.location.href = "index.html";
+    const supabaseClient = window.SSC_SUPABASE_URL && window.SSC_SUPABASE_URL.startsWith('https://')
+      && window.SSC_SUPABASE_ANON_KEY && !window.SSC_SUPABASE_ANON_KEY.startsWith('PASTE_')
+      ? window.supabase.createClient(window.SSC_SUPABASE_URL, window.SSC_SUPABASE_ANON_KEY)
+      : null;
+    let currentUser = null;
+    let currentProfile = null;
+    let currentSession = null;
+    let isOfficer = false;
+    const commentsByPost = new Map();
+    if (supabaseClient) {
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        currentSession = session;
+        currentUser = session?.user || null;
+      });
     }
 
-    // Check if user is an officer
-    const isOfficer = currentUser && (currentUser.member_type.toLowerCase() === 'officer' || currentUser.member_type.toLowerCase() === 'officers');
-
     // Initialize View
-    document.addEventListener('DOMContentLoaded', () => {
-      if (currentUser) {
-        document.getElementById('userInfo').innerHTML = `
-          Logged in as: <span class="font-bold text-amber-300">${currentUser.full_name}</span> 
-          <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-emerald-300 ml-1">${currentUser.member_type.toUpperCase()}</span>
-        `;
-
-        // Show post creation box ONLY if user is a Council Officer
-        if (isOfficer) {
-          document.getElementById('postPublisherBox').classList.remove('hidden');
-        }
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!supabaseClient) {
+        alert('Supabase Auth is not configured. Please contact the site administrator.');
+        window.location.href = 'index.html';
+        return;
       }
-
-      loadPosts();
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      currentSession = sessionData.session;
+      if (!currentSession) {
+        window.location.href = 'index.html';
+        return;
+      }
+      currentUser = currentSession.user;
+      const { data: profile, error } = await supabaseClient
+        .from('profiles').select('display_name, role').eq('id', currentUser.id).single();
+      if (error || !profile) {
+        console.error('Profile load error:', error);
+        alert('Your account profile is not ready. Please contact the site administrator.');
+        await supabaseClient.auth.signOut();
+        window.location.href = 'index.html';
+        return;
+      }
+      currentProfile = profile;
+      isOfficer = profile.role === 'officer';
+      document.getElementById('userInfo').textContent = `Logged in as: ${profile.display_name} (${profile.role.toUpperCase()})`;
+      if (isOfficer) document.getElementById('postPublisherBox').classList.remove('hidden');
+      await loadPosts();
     });
 
     // Logout Function
-    function logoutUser() {
-      localStorage.removeItem('ssc_user');
-      window.location.href = "index.html";
+    async function logoutUser() {
+      if (supabaseClient) await supabaseClient.auth.signOut();
+      window.location.href = 'index.html';
+    }
+
+    function authHeaders() {
+      return currentSession ? { Authorization: `Bearer ${currentSession.access_token}` } : {};
     }
 
     async function loadPendingMembers() {
@@ -190,8 +213,12 @@
               </div>
               <p class="text-slate-200 text-sm whitespace-pre-line">${p.content}</p>
               ${p.image_url ? `<img src="${p.image_url}" class="rounded-lg max-h-80 w-full object-cover border border-slate-700" alt="Post Image">` : ''}
+              <div id="comments-${p.id}" class="border-t border-slate-700 pt-3" aria-live="polite">
+                <p class="text-xs text-slate-400">Loading comments…</p>
+              </div>
             </div>
           `;
+          void loadComments(p.id);
         });
       } catch (err) {
         console.error("Error loading posts:", err);
@@ -204,7 +231,8 @@
 
       try {
         const res = await fetch(`${API_URL}/posts/${postId}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: authHeaders()
         });
 
         if (res.ok) {
@@ -221,6 +249,7 @@
 
     // Publish Post Function with Direct File Upload Support
     async function publishPost() {
+      if (!isOfficer) return alert('Only council officers can publish announcements.');
       const content = document.getElementById('postContent').value.trim();
       const imageFileInput = document.getElementById('postImageFile');
       let imageUrl = null;
@@ -238,6 +267,7 @@
 
           const uploadRes = await fetch(`${API_URL}/upload`, {
             method: 'POST',
+            headers: authHeaders(),
             body: formData
           });
 
@@ -253,10 +283,10 @@
         // Send the post data containing the content and final image URL
         const res = await fetch(`${API_URL}/posts`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            author_name: currentUser.full_name,
-            author_role: currentUser.designation || 'Council Officer',
+            author_name: currentProfile.display_name,
+            author_role: 'Council Officer',
             content,
             image_url: imageUrl
           })
@@ -273,6 +303,137 @@
         console.error(err);
         alert("Error connecting to server for post publishing.");
       }
+    }
+
+    function renderComments(postId) {
+      const root = document.getElementById(`comments-${postId}`);
+      const state = commentsByPost.get(String(postId));
+      if (!root || !state) return;
+      root.replaceChildren();
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'text-emerald-300 hover:text-emerald-200 text-sm';
+      toggle.textContent = state.expanded ? 'Hide comments' : `Show all ${state.comments.length} comments`;
+      toggle.setAttribute('aria-expanded', String(state.expanded));
+      toggle.onclick = () => { state.expanded = !state.expanded; renderComments(postId); };
+      root.append(toggle);
+
+      if (currentUser) {
+        const form = document.createElement('form');
+        form.className = 'mt-3 flex gap-2';
+        const input = document.createElement('input');
+        input.name = 'content'; input.required = true; input.maxLength = 5000;
+        input.placeholder = 'Write a comment…'; input.setAttribute('aria-label', 'Write a comment');
+        input.className = 'min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-sm';
+        const submit = document.createElement('button');
+        submit.type = 'submit'; submit.textContent = state.posting ? 'Posting…' : 'Post Comment';
+        submit.disabled = state.posting;
+        submit.className = 'bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs px-3 rounded';
+        form.append(input, submit);
+        form.onsubmit = (event) => { event.preventDefault(); void submitComment(postId, input.value, input); };
+        root.append(form);
+      } else {
+        const signIn = document.createElement('p');
+        signIn.className = 'mt-2 text-xs text-slate-400';
+        signIn.textContent = 'Sign in to comment.';
+        root.append(signIn);
+      }
+
+      if (state.error) {
+        const error = document.createElement('p');
+        error.className = 'mt-2 text-xs text-rose-300'; error.textContent = state.error;
+        root.append(error);
+      }
+
+      const list = document.createElement('ul'); list.className = 'mt-3 space-y-3';
+      const items = state.expanded ? state.comments : state.comments.slice(0, 2);
+      items.forEach((comment) => {
+        const item = document.createElement('li'); item.className = 'rounded bg-slate-900/60 p-3';
+        const byline = document.createElement('p'); byline.className = 'text-xs text-slate-400';
+        byline.textContent = `${comment.author_name} · ${new Date(comment.created_at).toLocaleString()}`;
+        const body = document.createElement('p'); body.className = 'mt-1 text-sm text-slate-200 whitespace-pre-wrap';
+        body.textContent = comment.content; item.append(byline, body);
+        if (currentUser && currentUser.id === comment.user_id) {
+          const controls = document.createElement('div'); controls.className = 'mt-2 flex gap-3 text-xs';
+          const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Edit';
+          edit.className = 'text-emerald-300 underline'; edit.onclick = () => void editComment(postId, comment);
+          const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Delete';
+          remove.className = 'text-rose-300 underline'; remove.onclick = () => void deleteComment(postId, comment);
+          controls.append(edit, remove); item.append(controls);
+        }
+        list.append(item);
+      });
+      root.append(list);
+    }
+
+    async function loadComments(postId) {
+      const key = String(postId);
+      if (commentsByPost.has(key)) { renderComments(postId); return; }
+      const state = { comments: [], expanded: false, posting: false, error: '' };
+      commentsByPost.set(key, state);
+      const { data, error } = await supabaseClient.from('comments')
+        .select('id, post_id, user_id, author_name, content, created_at')
+        .eq('post_id', postId).order('created_at', { ascending: false });
+      if (error) state.error = error.message;
+      else state.comments = data || [];
+      renderComments(postId);
+
+      state.channel = supabaseClient.channel(`comments-post-${postId}`)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}`
+        }, (payload) => {
+          if (payload.eventType === 'INSERT') {
+            if (!state.comments.some((item) => item.id === payload.new.id)) state.comments.unshift(payload.new);
+          } else if (payload.eventType === 'UPDATE') {
+            state.comments = state.comments.map((item) => item.id === payload.new.id ? payload.new : item);
+          } else if (payload.eventType === 'DELETE') {
+            state.comments = state.comments.filter((item) => item.id !== payload.old.id);
+          }
+          state.comments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          renderComments(postId);
+        }).subscribe();
+    }
+
+    async function submitComment(postId, rawContent, input) {
+      const state = commentsByPost.get(String(postId));
+      const content = rawContent.trim();
+      if (!state || !content || state.posting) return;
+      state.posting = true; state.error = '';
+      const pending = {
+        id: `pending-${crypto.randomUUID()}`, post_id: postId, user_id: currentUser.id,
+        author_name: currentProfile.display_name, content, created_at: new Date().toISOString()
+      };
+      state.comments.unshift(pending); renderComments(postId);
+      const { data, error } = await supabaseClient.from('comments')
+        .insert({ post_id: postId, user_id: currentUser.id, content })
+        .select('id, post_id, user_id, author_name, content, created_at').single();
+      state.comments = state.comments.filter((item) => item.id !== pending.id);
+      if (error) state.error = error.message;
+      else if (data && !state.comments.some((item) => item.id === data.id)) state.comments.unshift(data);
+      state.posting = false; renderComments(postId);
+      if (error) {
+        const currentInput = document.querySelector(`#comments-${postId} input[name="content"]`);
+        if (currentInput) currentInput.value = content;
+      }
+    }
+
+    async function editComment(postId, comment) {
+      const next = prompt('Edit your comment:', comment.content);
+      if (next === null || !next.trim()) return;
+      const state = commentsByPost.get(String(postId));
+      const old = comment.content; comment.content = next.trim(); renderComments(postId);
+      const { error } = await supabaseClient.from('comments').update({ content: comment.content }).eq('id', comment.id);
+      if (error) { comment.content = old; state.error = error.message; renderComments(postId); }
+    }
+
+    async function deleteComment(postId, comment) {
+      if (!confirm('Delete your comment?')) return;
+      const state = commentsByPost.get(String(postId));
+      const previous = state.comments;
+      state.comments = previous.filter((item) => item.id !== comment.id); renderComments(postId);
+      const { error } = await supabaseClient.from('comments').delete().eq('id', comment.id);
+      if (error) { state.comments = previous; state.error = error.message; renderComments(postId); }
     }
   </script>
 </body>
