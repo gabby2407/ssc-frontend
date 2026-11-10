@@ -11,7 +11,7 @@ This frontend is static HTML/JavaScript. It uses Supabase Auth in the browser an
 
 New Auth accounts get the `member` role and can comment. Once a council officer has created and confirmed an account, promote it from the SQL Editor using the example at the bottom of `supabase-auth-comments.sql`. The browser only displays the announcement composer for officers, and the Render API independently checks the profile role before allowing announcement creation, image upload, or deletion.
 
-To link an existing SSC directory record to an Auth login, run the updated `supabase-auth-comments.sql` in the Supabase SQL Editor and deploy the `ssc-backend-push` changes to Render. The member signs in, submits their SSC ID from the dashboard, and an officer verifies and approves the request. Linking does not grant the officer role; assign `officer` separately only to verified council accounts using the SQL example at the bottom of the SQL file.
+To link an existing SSC directory record to an Auth login, run the updated `supabase-auth-comments.sql` in the Supabase SQL Editor and deploy the `ssc-backend-push` changes to Render. Set the Render environment variable `SSC_COUNCIL_APPROVAL_KEY` to a private password shared only with selected reviewers. A signed-in member can submit their SSC ID from the dashboard; only signed-in users with that key can load and approve registration or account-link requests. Linking does not grant the officer role; assign `officer` separately only to verified council accounts using the SQL example at the bottom of the SQL file. Officer role remains required for posting announcements.
 
 ## Deploy
 

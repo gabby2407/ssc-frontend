@@ -31,6 +31,8 @@
     <aside class="space-y-4">
       <div id="councilReviewBox" class="hidden bg-slate-800 border border-amber-700/60 p-4 rounded-xl shadow space-y-3">
         <h2 class="text-amber-300 font-semibold"><i class="fa-solid fa-user-check"></i> Council registration review</h2>
+        <p class="text-xs text-slate-400">Enter the council approval password given to selected reviewers to load or approve requests.</p>
+        <input id="councilApprovalKey" type="password" autocomplete="off" placeholder="Council approval password" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs focus:border-amber-400 focus:outline-none">
         <p class="text-xs text-slate-400">Review and approve new member registrations.</p>
         <button onclick="loadPendingMembers()" class="bg-amber-600 hover:bg-amber-500 text-slate-900 text-xs font-semibold px-3 py-2 rounded">Load pending requests</button>
         <div id="pendingMembers" class="space-y-2 text-xs"></div>
@@ -128,8 +130,8 @@
       document.getElementById('userInfo').textContent = `Logged in as: ${profile.display_name} (${profile.role.toUpperCase()})`;
       if (isOfficer) {
         document.getElementById('postPublisherBox').classList.remove('hidden');
-        document.getElementById('councilReviewBox').classList.remove('hidden');
       }
+      document.getElementById('councilReviewBox').classList.remove('hidden');
       await loadPosts();
     });
 
@@ -143,11 +145,17 @@
       return currentSession ? { Authorization: `Bearer ${currentSession.access_token}` } : {};
     }
 
+    function councilHeaders() {
+      const key = document.getElementById('councilApprovalKey').value.trim();
+      if (!key) throw new Error('Enter the council approval password.');
+      return { ...authHeaders(), 'x-council-approval-key': key };
+    }
+
     async function loadPendingMembers() {
       const container = document.getElementById('pendingMembers');
       try {
         const res = await fetch(`${API_URL}/members/pending`, {
-          headers: authHeaders()
+          headers: councilHeaders()
         });
         const requests = await res.json();
         if (!res.ok) return alert(requests.error || 'Could not load pending registrations.');
@@ -175,7 +183,7 @@
       try {
         const res = await fetch(`${API_URL}/members/${encodeURIComponent(sscNumber)}/approve`, {
           method: 'POST',
-          headers: authHeaders()
+          headers: councilHeaders()
         });
         const data = await res.json();
         if (!res.ok) return alert(data.error || 'Could not approve registration.');
@@ -207,7 +215,7 @@
     async function loadLinkRequests() {
       const container = document.getElementById('pendingLinks');
       try {
-        const res = await fetch(`${API_URL}/members/link-requests`, { headers: authHeaders() });
+        const res = await fetch(`${API_URL}/members/link-requests`, { headers: councilHeaders() });
         const requests = await res.json();
         if (!res.ok) return alert(requests.error || 'Could not load link requests.');
         container.replaceChildren();
@@ -222,11 +230,15 @@
           approve.className = 'text-emerald-300 hover:text-emerald-200 underline';
           approve.textContent = 'Verify and link';
           approve.onclick = async () => {
-            const approved = await fetch(`${API_URL}/members/link-requests/${request.id}/approve`, { method: 'POST', headers: authHeaders() });
-            const result = await approved.json();
-            if (!approved.ok) return alert(result.error || 'Could not approve link.');
-            alert(result.message);
-            await loadLinkRequests();
+            try {
+              const approved = await fetch(`${API_URL}/members/link-requests/${request.id}/approve`, { method: 'POST', headers: councilHeaders() });
+              const result = await approved.json();
+              if (!approved.ok) return alert(result.error || 'Could not approve link.');
+              alert(result.message);
+              await loadLinkRequests();
+            } catch (err) {
+              alert(err.message || 'Connection error while approving link.');
+            }
           };
           row.append(details, approve);
           container.appendChild(row);
