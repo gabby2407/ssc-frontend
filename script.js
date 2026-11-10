@@ -107,7 +107,20 @@ async function handleRegistration(event) {
       document.getElementById('registrationForm').reset();
       closeModal('registerModal');
     } else {
-      alert(`Your Auth account was created, but the membership request was not saved: ${data.error || 'server error'}. You can still sign in as a member; ask a council officer to check your membership record.`);
+      if (authData.session && /already registered|duplicate/i.test(data.error || '')) {
+        const linkRes = await fetch(`${BASE_API}/members/link-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authData.session.access_token}` },
+          body: JSON.stringify({ ssc_number: formData.ssc_number })
+        });
+        const linkData = await linkRes.json().catch(() => ({}));
+        if (!linkRes.ok) throw new Error(`Your login account was created, but the link request failed: ${linkData.error || 'server error'}. Sign in and ask an officer to help.`);
+        alert('Your SSC ID already exists. A request to link your login to that record was sent to the council for review. It does not grant officer access automatically.');
+        document.getElementById('registrationForm').reset();
+        closeModal('registerModal');
+      } else {
+        alert(`Your Auth account was created, but the membership request was not saved: ${data.error || 'server error'}. Confirm your email, sign in, and ask an officer to review your existing SSC ID.`);
+      }
     }
   } catch (err) {
     console.error("Error submitting registration:", err);

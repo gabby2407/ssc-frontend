@@ -34,6 +34,15 @@
         <p class="text-xs text-slate-400">Review and approve new member registrations.</p>
         <button onclick="loadPendingMembers()" class="bg-amber-600 hover:bg-amber-500 text-slate-900 text-xs font-semibold px-3 py-2 rounded">Load pending requests</button>
         <div id="pendingMembers" class="space-y-2 text-xs"></div>
+        <h3 class="text-amber-300 font-semibold pt-2">Existing account link requests</h3>
+        <button onclick="loadLinkRequests()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-2 rounded">Load link requests</button>
+        <div id="pendingLinks" class="space-y-2 text-xs"></div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow space-y-2">
+        <h2 class="text-emerald-400 font-semibold">Link an existing SSC record</h2>
+        <p class="text-xs text-slate-400">If your SSC ID is already in the directory, request a link. A council officer must verify it.</p>
+        <input id="linkSscNumber" type="text" placeholder="SSC ID number" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+        <button onclick="requestMemberLink()" class="bg-emerald-700 hover:bg-emerald-600 text-xs px-3 py-2 rounded">Request account link</button>
       </div>
       <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow">
         <h2 class="text-emerald-400 font-semibold mb-2"><i class="fa-solid fa-bell"></i> Notifications</h2>
@@ -174,6 +183,57 @@
       } catch (err) {
         console.error('Member approval error:', err);
         alert('Connection error while approving registration.');
+      }
+    }
+
+    async function requestMemberLink() {
+      const ssc_number = document.getElementById('linkSscNumber').value.trim();
+      if (!ssc_number) return alert('Enter your SSC ID.');
+      try {
+        const res = await fetch(`${API_URL}/members/link-request`, {
+          method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ssc_number })
+        });
+        const data = await res.json();
+        if (!res.ok) return alert(data.error || 'Could not request account link.');
+        alert(data.message);
+        document.getElementById('linkSscNumber').value = '';
+      } catch (err) {
+        console.error('Member link request error:', err);
+        alert('Connection error while requesting account link.');
+      }
+    }
+
+    async function loadLinkRequests() {
+      const container = document.getElementById('pendingLinks');
+      try {
+        const res = await fetch(`${API_URL}/members/link-requests`, { headers: authHeaders() });
+        const requests = await res.json();
+        if (!res.ok) return alert(requests.error || 'Could not load link requests.');
+        container.replaceChildren();
+        if (!requests.length) container.textContent = 'No pending account link requests.';
+        requests.forEach(request => {
+          const row = document.createElement('div');
+          row.className = 'bg-slate-900/70 border border-slate-700 rounded p-2 space-y-1';
+          const details = document.createElement('p');
+          details.className = 'text-slate-300';
+          details.textContent = `${request.full_name} (${request.ssc_number}) · ${request.email}`;
+          const approve = document.createElement('button');
+          approve.className = 'text-emerald-300 hover:text-emerald-200 underline';
+          approve.textContent = 'Verify and link';
+          approve.onclick = async () => {
+            const approved = await fetch(`${API_URL}/members/link-requests/${request.id}/approve`, { method: 'POST', headers: authHeaders() });
+            const result = await approved.json();
+            if (!approved.ok) return alert(result.error || 'Could not approve link.');
+            alert(result.message);
+            await loadLinkRequests();
+          };
+          row.append(details, approve);
+          container.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Link request load error:', err);
+        alert('Connection error while loading link requests.');
       }
     }
 
